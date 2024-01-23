@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const validator = require("validator")
 const bcrypt = require("bcrypt")
+const crypto = require('crypto')
 const userSchema = new mongoose.Schema({
     name:{
         type:String,
@@ -16,13 +17,24 @@ const userSchema = new mongoose.Schema({
             message:"Please provide a valid email address"
         }
     },
-    location:{
+    photo:{
         type:String,
-        trim:true
     },
     password:{
         type:String,
-        minlength:6
+        minlength:6,
+        required:[true, "Please provide confirm password"]
+    },
+    confirmPassword:{
+        type:String,
+        minlength:6,
+        required:[true, "Please provide confirm password"],
+        validate:{
+            validator:function(el){
+                return el === this.password
+            },
+            message:"Password and confirm password do not match"
+        }
     },
     role:{
         type:String,
@@ -31,18 +43,39 @@ const userSchema = new mongoose.Schema({
             message:"{VALUES} is not a role category"
         },
         default:'user'
-    }
+    },
+    passwordChangedAt:Date,
+    passwordResetToken:String,
+    passwordResetTokenExpires:Date
 })
 
-userSchema.pre('save', async function(){
-    if(!this.isModified("password")) return;
+userSchema.pre('save', async function(next){
+    if(!this.isModified("password")) return next();
     const salt = await bcrypt.genSalt(10)
     this.password = await bcrypt.hash(this.password, salt)
+    this.confirmPassword = undefined
+    next();
 })
 
 userSchema.methods.comparePasswords = async function(passwordEntered){
     const isMatched = await bcrypt.compare(passwordEntered, this.password)
     return isMatched;
+}
+
+userSchema.methods.changePasswordAfter = function(JWTTimeStamp){
+    if(this.passwordChangedAt){
+        const changePasswordTmeStamp = parseInt(this.passwordChangedAt.getTime()/1000, 10)
+        return JWTTimeStamp < changePasswordTmeStamp
+    }
+    return false
+}
+
+userSchema.methods.createPasswordResetToken = function(){
+    const resetToken = crypto.randomBytes(42).toString('hex')
+    this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+    this.passwordResetTokenExpires = Date.now() + 1000 * 60 *10
+    console.log({resetToken, hashed:this.passwordResetToken})
+    return resetToken
 }
 
 

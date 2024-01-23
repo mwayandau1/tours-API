@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken')
-
+const {promisify} = require('util')
 
 const createToken = ({payload})=>{
     const token =  jwt.sign(payload, process.env.JWT_SECRET, {
