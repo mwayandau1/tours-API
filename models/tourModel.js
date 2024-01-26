@@ -75,7 +75,34 @@ const tourSchema = new mongoose.Schema({
     secretTour:{
         type:Boolean,
         default:false
-    }
+    },
+    startLocation:{
+        type:{
+            type:String,
+            default:"Point",
+            enum:["Point"]
+        },
+        coordinates:[Number],
+        address:String,
+        description:String
+    },
+    locations:{
+        type:{
+            type:String,
+            default:"Point",
+            enum:["Point"]
+        },
+        coordinates:String,
+        address:String,
+        description:String,
+        day:Number
+    },
+    guides:[
+        {
+            type:mongoose.Schema.ObjectId,
+            ref:"User"
+        }
+    ]
 },
 {
     toJSON:{virtuals:true},
@@ -88,6 +115,12 @@ tourSchema.pre("save", function(next){
     this.slug = slugify(this.name, {lower:true})
     next()
 })
+//FOR EMBEDDING
+// tourSchema.pre("save", async function(next){
+//     const guidesPromises = this.guides.map(async id=>await User.findById(id))
+//     this.guides = await Promise.all(guidesPromises)
+//     next()
+// })
 
 //QUERY MIDDLEWARE
 tourSchema.pre(/^find/, function(next){
@@ -95,12 +128,14 @@ tourSchema.pre(/^find/, function(next){
     // this.start = new Date.now()
     next()
 })
+tourSchema.pre(/^find/, function(next){
+    this.populate({path:"guides", select:"-_v -passwordChangedAt -password"})
+    next()
+})
 // tourSchema.post("save", function(doc, next){
 //     console.log(`Execution time is ${Date.now()- this.start}`)
 //     next()
 // })
-
-
 
 //aggregation middleware
 tourSchema.pre("aggregate", function(next){
@@ -110,5 +145,11 @@ tourSchema.pre("aggregate", function(next){
 })
 tourSchema.virtual("durationWeeks").get(function(){
     return this.duration/7
+})
+
+tourSchema.virtual("reviews", {
+    ref:"Review",
+    foreignField:"tour",
+    localField:"_id"
 })
 module.exports = mongoose.model("Tour", tourSchema)

@@ -50,7 +50,7 @@ const createTour = asyncHandler(async (req, res) => {
 
   const getSingleTour = asyncHandler(async(req, res, next)=>{
     const {id} = req.params
-    const tour = await Tour.findById(id)
+    const tour = await Tour.findById(id).populate("reviews")
     if(!tour){
       return next(new CustomError(`No tour found with this ID:${id}`, 404))
 
